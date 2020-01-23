@@ -1,0 +1,162 @@
+\documentclass[]{spie}
+
+\usepackage{graphicx, color}
+\usepackage[colorlinks=true, allcolors=blue, backref]{hyperref}
+
+\usepackage{subcaption}
+\usepackage{booktabs, tabularx}
+\usepackage{amsmath,amsfonts,amssymb}
+\usepackage[table]{xcolor}
+
+\definecolor{brown}{rgb}{0.66,0.33,0 }
+
+\def\papertitle{Weak Supervision in Convolutional Neural Network for Semantic Segmentation of Diffuse Lung Diseases Using Partially Annotated Dataset}
+\def\paperkeywords{deep learning, weak supervision, convolutional neural network, diffuse lung diseases, semantic segmentation}
+\def\github{https://github.com/yk-szk/SPIE2020}
+
+\title{\papertitle}
+
+\author[a]{Yuki Suzuki}
+\author[a]{Kazuki Yamagata}
+\author[a]{Yanagawa Masahiro}
+\author[a]{Shoji Kido}
+\author[a]{Noriyuki Tomiyama}
+\pagestyle{empty} % change to \pagestyle{plain} for page numbers
+
+\affil[a]{Graduate School of Medicine, Osaka University, 2-2 Yamadaoka, Suita, Osaka, 565-0871, Japan}
+\authorinfo{Further author information: (Send correspondence to Yuki Suzuki)\\
+  Yuki Suzuki: E-mail: y-suzuki@radiol.med.osaka-u.ac.jp, Telephone: \texttt{+}81 (0)6 6879 3432\\
+  Shoji Kido: E-mail: kido@radiol.med.osaka-u.ac.jp, Telephone: \texttt{+}81 (0)6 6879 3432}
+
+\hypersetup{
+  pdftitle={\papertitle},
+  pdfauthor={Yuki Suzuki},
+  pdfkeywords={\paperkeywords}
+}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+  Computer-aided diagnosis system for diffuse lung diseases (DLDs) is necessary for the objective assessment of the lung diseases.
+  In this paper, we develop semantic segmentation model for 5 kinds of DLDs.
+  DLDs considered in this work are consolidation, ground glass opacity, honeycombing, emphysema, and normal.
+  Convolutional neural network (CNN) is one of the most promising technique for semantic segmentation among machine learning algorithms.
+  While creating annotated dataset for semantic segmentation is laborious and time consuming, creating partially annotated dataset, in which only one chosen class is annotated for each image, is easier since annotators only need to focus on one class at a time during the annotation task.
+  In this paper, we propose a new weak supervision technique that effectively utilizes partially annotated dataset.
+  The experiments using partially annotated dataset composed 372 CT images demonstrated that our proposed technique significantly improved segmentation accuracy.
+\end{abstract}
+
+\keywords{\paperkeywords}
+
+\section{INTRODUCTION}
+\paragraph{Motivation}
+Diffuse lung diseases (DLDs) are pulmonary abnormalities observable in medical images such as chest computed tomography (CT).
+Computer-aided diagnosis system for diffuse lung diseases is necessary to eliminate interobserver variabilities\cite{Watadani2013} and achieve objective assessment of DLDs, that can lead to better diagnosis and patient treatment.
+Therefore, our goal was to develop an automated DLD segmentation method for the objective assessment of DLDs.
+The DLD patterns considered in this paper are consolidation (CON), ground glass opacity (GGO), honeycombing (HCM), emphysema (EMP), and normal (NOR).
+
+\paragraph{Machine learning and training dataset}
+A number of studies regarding automated assessment of DLDs have been conducted in various context including image level classification and semantic segmentation.
+There are several kinds of supervised methods for automated assessment of DLDs including fully-supervised\cite{Hashimoto2018,gao2018holistic,Negahdar2019}, semi-supervised\cite{Anthimopoulos2019}, weakly supervised\cite{Wang2019}, and unsupervised\cite{Mabu2017}.
+Machine learning techniques are widely used for semantic segmentation since they are capable of learning complicated texture patterns and often outperform hand-crafted algorithms.
+Among the machine learning techniques, convolutional neural network (CNN) is one of the most  successful technique in computer vision tasks.
+One of the biggest drawbacks of machine learning including CNN is that it requires training dataset, which typically involves costly annotation tasks unless there is publicly available annotated dataset.
+Ideal annotation for semantic segmentation is pixel-wise full annotation, in which every pixel in the image is labeled as one of the possible classes.
+
+\paragraph{Partially annotated dataset}
+In this paper, we define partial annotation as an annotation format in which only one class is chosen for the annotation and only pixels belonging to the chosen class are annotated per image.
+For example, in Figure \ref{fig:example_con}, although there is ground glass opacity in the image, only consolidation is chosen for annotation and pixels of consolidation are annotated.
+Partially annotated dataset is less informative for training, however, it is much easier to create compared to fully annotated dataset since annotators only need to focus on one class at a time during the annotation task.
+
+\paragraph{About this paper}
+Partially annotated datasets have been utilized previously \cite{Dmitriev_2019_CVPR,Kong2019}.
+In this paper, we propose a new weak supervision technique that fully utilizes partially annotated dataset.
+Throughout this paper, each DLD pattern is represented or painted in the following colors (CON:cyan, GGO:yellow, HCM:red, EMP:green, NOR:brown.)
+
+\section{MATERIAL AND METHOD}
+\subsection{Dataset}
+\paragraph{Images}
+The dataset used in this study consists of 372 high-resolution computed tomography (HRCT) taken in Yamaguchi University Hospital, Japan.
+The mean and the standard deviation of the pixel size are $0.684 mm$ and $0.0517 mm$ respectively and slice thickness is $1 mm$.
+In this work, no pixel size equalization was performed since the deviation in the pixel sizes was negligibly small.
+
+\paragraph{Annotation}
+Statistics of our dataset are shown in Table \ref{dataset_stats} and typical images and their annotations for each DLD pattern are shown in Figure \ref{image_examples}.
+In our partially annotated dataset, all the pixels in a slice were manually classified into two classes: dominating DLD pattern and other tissues.
+In other words, all the pixels in our dataset were assigned one of the labels from either of the two label sets, $L_{strong} = \{l_{CON}, l_{GGO}, l_{HCM}, l_{EMP}, l_{NOR}\}$ or $L_{weak} = \{l_{\overline{CON}}, l_{\overline{GGO}}, l_{\overline{HCM}}, l_{\overline{EMP}}, l_{\overline{NOR}}\}$.
+For example, in Figure \ref{fig:example_con}, colored pixels were labeled as $l_{CON}$ and all the other pixels were labeled as $l_{\overline{CON}}$.
+In this paper, we call pixels of label $l \in L_{weak}$ and $l \in L_{strong}$ as weakly annotated pixels and strongly annotated pixels respectively.
+Our pixel-wise annotations were created in the following steps.
+First, up to 3 slices were chosen for the annotation for each HRCT scan and for each slice, one representing DLD pattern was chosen by a radiologist.
+Second, three radiologists performed pixel-wise binary annotation (e.g. binary annotation between $l_{CON}$ or $l_{\overline{CON}}$) for each slice.
+Finally, the radiologists' annotations were merged by taking majority classes for each pixel (i.e. pixels labeled as a DLD pattern by more than 2 radiologists became the corresponding DLD pixel).
+In addition to the DLDs annotation, lung fields were manually segmented under the supervision of radiologists and training and testing were conducted only within the lung fields.
+
+\input{stats}
+\input{examples}
+
+\subsection{Method}
+\paragraph{Network architecture}
+U-Net\cite{Ronneberger2015} and its variants are widely used in semantic segmentation of medical images because of its simplicity and applicability.
+In this study, we modified U-Net to satisfy two demands for our use.
+(1) Take 3D input to leverage 3D spatial information of HRCT.
+(2) Generate 2D image since annotations are given by slices not by volumes.
+Our modified U-Net's input tensor shape is (6, 512, 512, 1) and output tensor shape is (1, 512, 512, 5), where each axis in the tensor represents z, y, x, and channel respectively.
+In the network, the size along z axis was reduced from 6 to 1 by adjusting the padding size of the convolutional layers.
+The value 6 in the input tensor shape represents the number of slices that our model takes as the input and it was determined empirically.
+
+\paragraph{Loss function}
+\def\vyhat{\mathbf{\hat{y}}} % vector y
+The proposed loss function used in the training is shown in Eq. (\ref{loss_function}), where $l$, $\vyhat$, and $H(.)$ denote the ground truth label, the softmax output of the CNN, and cross entropy respectively.
+$e(l)$ is one-hot encoding function that works in the conventional way for $l\in L_{strong}$ while for $l\in L_{weak}$, it works so that weakly annotated pixels get encoded equally as the corresponding annotated pixels (e.g. $e(l_{CON}) = e(l_{\overline{CON}})$).
+$\lambda$ is the weight for the weakly supervised pixels, which adjust the balance between supervised and weakly supervised pixels.
+Our loss function is designed to penalize weakly annotated pixels being predicted as corresponding label.
+
+\begin{equation}
+  \mathcal{L}(l,\vyhat)=
+  \begin{cases}
+    H(e(l),\vyhat), & l \in L_{\text{strong}} \\
+    -\lambda H(e(l),\vyhat), & l \in L_{\text{weak}}
+  \end{cases}
+  \label{loss_function}
+\end{equation}
+
+\section{RESULTS AND DISCUSSION}
+\paragraph{Experiment}
+5-fold stratified cross validation was performed for training and testing.
+Stratified method was chosen so that each class of the DLD patterns was equally split into the cross-validation subsets.
+In addition to the stratification, during the splitting process, case information was taken into account to avoid data leakage.
+During the training, 20\% of slices in the training subset were excluded as validation subset and used for early termination of the training.
+Adam optimizer with default parameters was used to train the network.
+Proposed method is implemented in Python using Keras library and the source code is publicly available at \href{\github}{\github}.
+In this experiment, we compared the following 4 training methods
+\{``supervised only'' : base line method that only uses strongly annotated pixel (equivalent of the proposed method with $\lambda=0$) ; ``proposed ($\lambda=0.1$)'' : proposed method with $\lambda=0.1$; ``proposed ($\lambda=1$)'' : proposed method with $\lambda=1$; ``semi-supervised'' : semi-supervised method used by Anthimopoulos, M. et.al.\cite{Anthimopoulos2019}, that utilizes weakly annotated pixels for semi-supervision.\}
+
+\paragraph{Results}
+Recall, precision, and dice coefficient (a.k.a F-measure) were used for the evaluation.
+For the sake of the evaluation, continuous softmax outputs were converted into discrete class labels by selecting the classes that gave the maximum probability.
+Table \ref{table:result} shows the evaluated metrics for each method.
+By paired t-tests, statistically significant differences were confirmed between the proposed method ($\lambda=0.1$) and other methods in dice coefficients.
+As shown in Table \ref{table:result}, utilizing weakly annotated pixels increased precision and $\lambda=0.1$ was the optimal value that balances recall and precision in this experiment.
+Evaluated dice coefficients for the proposed method ($\lambda=0.1$) are shown in Figure \ref{dice_swarm}.
+As shown in Figure \ref{dice_swarm}, even though the proposed method improved the segmentation accuracy, segmentation accuracy varies between slices.
+Figure \ref{confusion_matrix} shows the confusion matrix of the pixel-wise classification result.
+In Figure \ref{confusion_matrix}, $L_{weak}$ pixels misclassified as corresponding $L_{strong}$ (e.g. pixels of $l_{\overline{CON}}$ classified as $l_{CON}$) are represented as ``Others''.
+As shown in Figure \ref{confusion_matrix}, DLD class combinations with similar texture patterns such as HCM and EMP were misclassified into each other.
+Figure \ref{average_results} shows the average result for each DLD class and tested method.
+
+\input{result}
+
+\section{CONCLUSION}
+We proposed a new weakly supervised training  that effectively utilizes weakly annotated pixels of partially annotated dataset.
+Experiments demonstrated that our proposed method outperformed conventional methods.
+Further work is required to differentiate DLD patterns that have similar texture patterns such as HCM and EMP to improve the segmentation accuracy.
+
+\section*{ACKNOWLEDGEMENTS}
+This work was supported by JSPS KAKENHI Grant Number 17H02110.
+
+\bibliographystyle{spiebib}
+\bibliography{references}
+
+\end{document}
